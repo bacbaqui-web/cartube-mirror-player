@@ -50,6 +50,13 @@ h1 { margin: 0; text-align: center; font-size: 20px; font-weight: 600; letter-sp
 .tab-actions button:disabled { opacity: .25; }
 .tab-actions .delete { color: #ff3b30; }
 .dialog-help { margin: 12px 0 0; color: #8e8e93; font-size: 12px; }
+.playlist-summary { color: #6c6c70; line-height: 1.45; }
+.playlist-options { display: grid; gap: 8px; margin-top: 16px; }
+.playlist-options button { border: 0; border-radius: 10px; padding: 12px; background: #e5e5ea; color: #007aff; cursor: pointer; }
+.playlist-options .primary-option { background: #007aff; color: #fff; }
+.playlist-options .cancel-option { background: transparent; color: #8e8e93; }
+#youtubePlaylistLoader { position: fixed; left: -9999px; bottom: -9999px; width: 2px; height: 2px; overflow: hidden; pointer-events: none; }
+.toast { position: fixed; z-index: 20; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: calc(100% - 32px); border-radius: 999px; padding: 12px 18px; background: rgba(0,0,0,.8); color: #fff; font-size: 14px; font-weight: 600; text-align: center; pointer-events: none; }
 [hidden] { display: none !important; }
 @media (max-width: 560px) {
   .shell { padding: 16px 12px 60px; }
@@ -66,5 +73,8 @@ h1 { margin: 0; text-align: center; font-size: 20px; font-weight: 600; letter-sp
   .video-list, .video { border-color: #38383a; }
   .tab-dialog { background: #1c1c1e; color: #fff; }
   .tab-list li { border-color: #38383a; }
+  .playlist-summary { color: #8e8e93; }
+  .playlist-options button { background: #3a3a3c; }
+  .playlist-options .primary-option { background: #0a84ff; }
 }
 @keyframes pulse { to { opacity: 1; } }

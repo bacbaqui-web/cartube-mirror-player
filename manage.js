@@ -23,6 +23,8 @@ let tabs = legacyTabs.map(({ id, name }) => ({ id, name, videos: [] }));
 let selectedTabID = "songs";
 let unsubscribe = null;
 let isEnrichingMetadata = false;
+let pendingImportedPlaylist = null;
+let youtubeAPIReadyPromise = null;
 
 const authButton = document.querySelector("#authButton");
 const manager = document.querySelector("#manager");
@@ -36,6 +38,10 @@ const addTabButton = document.querySelector("#addTabButton");
 const manageTabsButton = document.querySelector("#manageTabsButton");
 const tabDialog = document.querySelector("#tabDialog");
 const tabList = document.querySelector("#tabList");
+const playlistDialog = document.querySelector("#playlistDialog");
+const playlistSummary = document.querySelector("#playlistSummary");
+const toast = document.querySelector("#toast");
+let toastTimer = null;
 
 authButton.addEventListener("click", async () => {
   try {
@@ -58,6 +64,13 @@ pasteButton.addEventListener("click", async () => {
   showStatus("");
   try {
     const text = await navigator.clipboard.readText();
+    const playlistID = parsePlaylistID(text);
+    if (playlistID) {
+      pendingImportedPlaylist = await importYouTubePlaylist(playlistID);
+      playlistSummary.textContent = `영상 ${pendingImportedPlaylist.videos.length}개를 가져왔습니다. 어디에 추가할까요?`;
+      playlistDialog.showModal();
+      return;
+    }
     const videoID = parseYouTubeID(text);
     if (!videoID) throw new Error("YouTube 영상 주소를 먼저 복사해 주세요.");
     const response = await fetch(oEmbedURL(videoID));
@@ -65,7 +78,7 @@ pasteButton.addEventListener("click", async () => {
     const { title, author_name: channelName } = await response.json();
     tab.videos.push({ id: crypto.randomUUID(), videoID, title, channelName });
     await save();
-    showStatus("영상이 추가되었습니다.");
+    showToast("영상이 추가되었습니다");
   } catch (error) {
     showStatus(error.message || "영상을 추가하지 못했습니다.");
   } finally {
@@ -73,6 +86,31 @@ pasteButton.addEventListener("click", async () => {
     pasteButton.classList.remove("loading");
   }
 });
+
+document.querySelector("#addPlaylistCurrent").addEventListener("click", async () => {
+  if (!pendingImportedPlaylist) return;
+  const count = pendingImportedPlaylist.videos.length;
+  selectedTab().videos.push(...pendingImportedPlaylist.videos);
+  closePlaylistDialog();
+  await save();
+  showToast(`영상 ${count}개가 추가되었습니다`);
+});
+
+document.querySelector("#addPlaylistNew").addEventListener("click", async () => {
+  if (!pendingImportedPlaylist) return;
+  const name = prompt("새 탭 이름", "YouTube 재생목록")?.trim();
+  if (!name) return;
+  const count = pendingImportedPlaylist.videos.length;
+  const tab = { id: crypto.randomUUID(), name, videos: pendingImportedPlaylist.videos };
+  tabs.push(tab);
+  selectedTabID = tab.id;
+  closePlaylistDialog();
+  await save();
+  render();
+  showToast(`새 탭에 영상 ${count}개가 추가되었습니다`);
+});
+
+document.querySelector("#cancelPlaylist").addEventListener("click", closePlaylistDialog);
 
 addTabButton.addEventListener("click", async () => {
   const name = prompt("새 탭 이름")?.trim();
@@ -250,7 +288,89 @@ function oEmbedURL(videoID) {
   return `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoID}`)}&format=json`;
 }
 
+function closePlaylistDialog() {
+  playlistDialog.close();
+  pendingImportedPlaylist = null;
+}
+
+async function importYouTubePlaylist(playlistID) {
+  const videoIDs = await loadPlaylistVideoIDs(playlistID);
+  if (!videoIDs.length) throw new Error("공개 재생목록의 영상을 가져오지 못했습니다.");
+
+  const videos = (await Promise.all(videoIDs.map(async videoID => {
+    try {
+      const response = await fetch(oEmbedURL(videoID));
+      if (!response.ok) return null;
+      const { title, author_name: channelName } = await response.json();
+      return { id: crypto.randomUUID(), videoID, title, channelName };
+    } catch {
+      return null;
+    }
+  }))).filter(Boolean);
+  if (!videos.length) throw new Error("재생목록의 영상 정보를 가져오지 못했습니다.");
+  return { videos };
+}
+
+async function loadPlaylistVideoIDs(playlistID) {
+  await loadYouTubeIframeAPI();
+  return new Promise((resolve, reject) => {
+    const host = document.querySelector("#youtubePlaylistLoader");
+    const target = document.createElement("div");
+    host.replaceChildren(target);
+    let player;
+    const timeout = setTimeout(() => {
+      player?.destroy();
+      reject(new Error("재생목록을 불러오는 시간이 초과되었습니다."));
+    }, 15000);
+    player = new YT.Player(target, {
+      width: "2",
+      height: "2",
+      playerVars: { listType: "playlist", list: playlistID, autoplay: 0, controls: 0 },
+      events: {
+        onReady: event => {
+          setTimeout(() => {
+            const ids = [...new Set(event.target.getPlaylist() || [])];
+            clearTimeout(timeout);
+            event.target.destroy();
+            if (ids.length) resolve(ids);
+            else reject(new Error("공개 재생목록의 영상을 찾지 못했습니다."));
+          }, 500);
+        },
+        onError: () => {
+          clearTimeout(timeout);
+          player?.destroy();
+          reject(new Error("공개 재생목록을 불러오지 못했습니다."));
+        }
+      }
+    });
+  });
+}
+
+function loadYouTubeIframeAPI() {
+  if (window.YT?.Player) return Promise.resolve();
+  if (youtubeAPIReadyPromise) return youtubeAPIReadyPromise;
+  youtubeAPIReadyPromise = new Promise((resolve, reject) => {
+    const previousCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previousCallback?.();
+      resolve();
+    };
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    script.onerror = () => reject(new Error("YouTube 재생목록 기능을 불러오지 못했습니다."));
+    document.head.append(script);
+  });
+  return youtubeAPIReadyPromise;
+}
+
 function showStatus(message) { status.textContent = message; }
+
+function showToast(message) {
+  clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.hidden = false;
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 2000);
+}
 
 function friendlyError(error) {
   if (error?.code === "auth/unauthorized-domain") return "Firebase에서 이 웹 주소의 로그인을 아직 허용하지 않았습니다.";
@@ -270,6 +390,14 @@ function parseYouTubeID(text) {
     const parts = url.pathname.split("/").filter(Boolean);
     const marker = parts.findIndex(part => ["shorts", "embed", "live"].includes(part));
     return marker >= 0 ? validID(parts[marker + 1]) : null;
+  } catch { return null; }
+}
+
+function parsePlaylistID(text) {
+  try {
+    const url = new URL(text.trim());
+    const isYouTube = url.hostname === "youtu.be" || url.hostname.endsWith(".youtu.be") || url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com");
+    return isYouTube ? url.searchParams.get("list") : null;
   } catch { return null; }
 }
 

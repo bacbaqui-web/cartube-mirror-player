@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>튼튼 영상 관리</title>
-  <link rel="stylesheet" href="manage.css?v=5">
+  <link rel="stylesheet" href="manage.css?v=6">
 </head>
 <body>
   <main class="shell">
@@ -40,8 +40,20 @@
       <ol id="tabList" class="tab-list"></ol>
       <p class="dialog-help">화살표로 순서를 바꾸고 연필로 이름을 변경할 수 있습니다.</p>
     </dialog>
+
+    <dialog id="playlistDialog" class="tab-dialog playlist-dialog">
+      <strong>YouTube 재생목록 가져오기</strong>
+      <p id="playlistSummary" class="playlist-summary"></p>
+      <div class="playlist-options">
+        <button id="addPlaylistCurrent" class="primary-option">현재 탭에 추가</button>
+        <button id="addPlaylistNew">새 탭을 만들어 추가</button>
+        <button id="cancelPlaylist" class="cancel-option">취소</button>
+      </div>
+    </dialog>
+    <div id="youtubePlaylistLoader" aria-hidden="true"></div>
+    <div id="toast" class="toast" role="status" hidden></div>
   </main>
 
-  <script type="module" src="manage.js?v=7"></script>
+  <script type="module" src="manage.js?v=8"></script>
 </body>
 </html>
