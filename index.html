@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>CarTube Mirror Player</title>
+  <style>
+    html, body, #player {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const isVideoID = value => /^[A-Za-z0-9_-]{11}$/.test(value);
+    const videos = (params.get('videos') || '').split(',').filter(isVideoID);
+    let currentIndex = Number.parseInt(params.get('index') || '0', 10);
+    let player;
+
+    if (!Number.isFinite(currentIndex) || currentIndex < 0 || currentIndex >= videos.length) {
+      currentIndex = 0;
+    }
+
+    function notify(message) {
+      const handler = window.webkit?.messageHandlers?.playerState;
+      if (handler) handler.postMessage(message);
+    }
+
+    function onYouTubeIframeAPIReady() {
+      if (videos.length === 0) {
+        document.body.textContent = '재생할 영상이 없습니다.';
+        document.body.style.color = '#fff';
+        return;
+      }
+
+      player = new YT.Player('player', {
+        width: '100%',
+        height: '100%',
+        videoId: videos[currentIndex],
+        playerVars: {
+          playsinline: 1,
+          controls: 0,
+          rel: 0,
+          fs: 0,
+          iv_load_policy: 3,
+          origin: location.origin
+        },
+        events: {
+          onReady: onReady,
+          onStateChange: onStateChange,
+          onError: event => notify({ type: 'error', value: event.data })
+        }
+      });
+    }
+
+    function onReady() {
+      notify({ type: 'index', value: currentIndex });
+      player.playVideo();
+    }
+
+    function onStateChange(event) {
+      if (event.data === YT.PlayerState.ENDED) {
+        nextVideo();
+        return;
+      }
+      notify({ type: 'playing', value: event.data === YT.PlayerState.PLAYING });
+    }
+
+    function load(index) {
+      currentIndex = (index + videos.length) % videos.length;
+      notify({ type: 'index', value: currentIndex });
+      player.loadVideoById(videos[currentIndex]);
+    }
+
+    function previousVideo() { load(currentIndex - 1); }
+    function nextVideo() { load(currentIndex + 1); }
+  </script>
+</body>
+</html>
