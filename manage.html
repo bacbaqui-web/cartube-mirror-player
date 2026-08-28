@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>튼튼 영상 관리</title>
+  <link rel="stylesheet" href="manage.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">TUNTUN</p>
+        <h1>튼튼 영상 관리</h1>
+        <p class="description">여기서 추가한 영상은 아이폰 앱에 자동으로 나타납니다.</p>
+      </div>
+      <button id="authButton" class="auth-button">Google로 로그인</button>
+    </header>
+
+    <section id="signedOut" class="empty-card">
+      <span class="face">◉‿◉</span>
+      <strong>먼저 Google로 로그인해 주세요.</strong>
+      <span>튼튼 전용 재생목록은 로그인한 본인만 수정할 수 있습니다.</span>
+    </section>
+
+    <section id="manager" class="manager" hidden>
+      <nav class="tabs" aria-label="영상 종류">
+        <button class="tab active" data-category="songs">동요</button>
+        <button class="tab" data-category="cars">자동차</button>
+        <button class="tab" data-category="dinosaurs">공룡</button>
+      </nav>
+
+      <button id="pasteButton" class="paste-button">
+        <span>▣</span>
+        <span id="pasteLabel">YouTube 영상 URL 붙여넣기</span>
+      </button>
+
+      <p id="status" class="status" role="status"></p>
+      <ol id="videoList" class="video-list"></ol>
+      <div id="emptyList" class="empty-list">아직 등록된 영상이 없습니다.</div>
+    </section>
+  </main>
+
+  <script type="module" src="manage.js"></script>
+</body>
+</html>
