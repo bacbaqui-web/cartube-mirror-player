@@ -27,8 +27,6 @@ const pasteButton = document.querySelector("#pasteButton");
 const status = document.querySelector("#status");
 const videoList = document.querySelector("#videoList");
 const emptyList = document.querySelector("#emptyList");
-const syncDot = document.querySelector("#syncDot");
-const syncLabel = document.querySelector("#syncLabel");
 
 authButton.addEventListener("click", async () => {
   try {
@@ -172,8 +170,7 @@ function render() {
 function showStatus(message) { status.textContent = message; }
 
 function setSyncState(state, message) {
-  syncDot.className = `sync-dot ${state === "waiting" ? "" : state}`;
-  syncLabel.textContent = message;
+  // 동기화 상태는 내부적으로만 관리하고 화면에는 표시하지 않습니다.
 }
 
 function friendlyError(error) {
