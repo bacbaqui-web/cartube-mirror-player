@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { doc, getFirestore, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const app = initializeApp({
@@ -31,11 +31,13 @@ const emptyList = document.querySelector("#emptyList");
 authButton.addEventListener("click", async () => {
   try {
     if (auth.currentUser) await signOut(auth);
-    else await signInWithPopup(auth, new GoogleAuthProvider());
+    else await signInWithRedirect(auth, new GoogleAuthProvider());
   } catch (error) {
     showStatus(friendlyError(error));
   }
 });
+
+getRedirectResult(auth).catch(error => showStatus(friendlyError(error)));
 
 document.querySelectorAll(".tab").forEach(button => {
   button.addEventListener("click", () => {
