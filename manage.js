@@ -73,10 +73,13 @@ pasteButton.addEventListener("click", async () => {
     }
     const videoID = parseYouTubeID(text);
     if (!videoID) throw new Error("YouTube 영상 주소를 먼저 복사해 주세요.");
-    const response = await fetch(oEmbedURL(videoID));
+    const [response, durationSeconds] = await Promise.all([
+      fetch(oEmbedURL(videoID)),
+      loadVideoDuration(videoID)
+    ]);
     if (!response.ok) throw new Error("영상 제목을 가져오지 못했습니다.");
     const { title, author_name: channelName } = await response.json();
-    tab.videos.push({ id: crypto.randomUUID(), videoID, title, channelName });
+    tab.videos.push({ id: crypto.randomUUID(), videoID, title, channelName, durationSeconds });
     await save();
     showToast("영상이 추가되었습니다");
   } catch (error) {
@@ -149,7 +152,7 @@ onAuthStateChanged(auth, user => {
       save().catch(error => showStatus(friendlyError(error)));
     }
     render();
-    enrichMissingChannelNames();
+    enrichMissingMetadata();
   }, error => showStatus(friendlyError(error)));
 });
 
@@ -199,12 +202,15 @@ function render() {
     const item = document.createElement("li");
     item.className = "video";
     const youtubeURL = `https://www.youtube.com/watch?v=${video.videoID}`;
-    item.innerHTML = `<a class="video-link" target="_blank" rel="noopener noreferrer"><img alt="" src="https://i.ytimg.com/vi/${video.videoID}/mqdefault.jpg"></a><a class="video-info video-link" target="_blank" rel="noopener noreferrer"><span class="video-title"></span><span class="channel-name"></span></a><div class="actions"><button class="rename" aria-label="이름 변경" title="이름 변경">✎</button><button class="delete" aria-label="삭제" title="삭제">⌫</button></div>`;
+    item.innerHTML = `<a class="video-link thumbnail-wrap" target="_blank" rel="noopener noreferrer"><img alt="" src="https://i.ytimg.com/vi/${video.videoID}/mqdefault.jpg"><span class="duration-badge" hidden></span></a><a class="video-info video-link" target="_blank" rel="noopener noreferrer"><span class="video-title"></span><span class="channel-name"></span></a><div class="actions"><button class="rename" aria-label="이름 변경" title="이름 변경">✎</button><button class="delete" aria-label="삭제" title="삭제">⌫</button></div>`;
     item.querySelectorAll(".video-link").forEach(link => link.href = youtubeURL);
     item.querySelector(".video-title").textContent = `${index + 1}. ${video.title}`;
     const channel = item.querySelector(".channel-name");
     channel.textContent = video.channelName || "";
     channel.hidden = !video.channelName;
+    const duration = item.querySelector(".duration-badge");
+    duration.textContent = formatDuration(video.durationSeconds);
+    duration.hidden = !video.durationSeconds;
     item.querySelector(".rename").addEventListener("click", async () => {
       const title = prompt("영상 이름", video.title)?.trim();
       if (!title) return;
@@ -262,19 +268,25 @@ async function moveTab(from, to) {
   renderTabManager();
 }
 
-async function enrichMissingChannelNames() {
+async function enrichMissingMetadata() {
   if (isEnrichingMetadata || !playlistRef) return;
-  const missing = tabs.flatMap(tab => tab.videos.filter(video => !video.channelName));
+  const missing = tabs.flatMap(tab => tab.videos.filter(video => !video.channelName || !video.durationSeconds));
   if (!missing.length) return;
   isEnrichingMetadata = true;
   let changed = false;
   try {
     for (const video of missing) {
-      const response = await fetch(oEmbedURL(video.videoID));
-      if (!response.ok) continue;
-      const { author_name: channelName } = await response.json();
-      if (channelName) {
-        video.channelName = channelName;
+      if (!video.channelName) {
+        const response = await fetch(oEmbedURL(video.videoID));
+        if (response.ok) {
+          const { author_name: channelName } = await response.json();
+          if (channelName) video.channelName = channelName;
+        }
+      }
+      if (!video.durationSeconds) {
+        video.durationSeconds = await loadVideoDuration(video.videoID);
+      }
+      if (video.channelName || video.durationSeconds) {
         changed = true;
       }
     }
@@ -297,18 +309,71 @@ async function importYouTubePlaylist(playlistID) {
   const videoIDs = await loadPlaylistVideoIDs(playlistID);
   if (!videoIDs.length) throw new Error("공개 재생목록의 영상을 가져오지 못했습니다.");
 
-  const videos = (await Promise.all(videoIDs.map(async videoID => {
+  const videos = (await mapWithConcurrency(videoIDs, 4, async videoID => {
     try {
-      const response = await fetch(oEmbedURL(videoID));
+      const [response, durationSeconds] = await Promise.all([
+        fetch(oEmbedURL(videoID)),
+        loadVideoDuration(videoID)
+      ]);
       if (!response.ok) return null;
       const { title, author_name: channelName } = await response.json();
-      return { id: crypto.randomUUID(), videoID, title, channelName };
+      return { id: crypto.randomUUID(), videoID, title, channelName, durationSeconds };
     } catch {
       return null;
     }
-  }))).filter(Boolean);
+  })).filter(Boolean);
   if (!videos.length) throw new Error("재생목록의 영상 정보를 가져오지 못했습니다.");
   return { videos };
+}
+
+async function mapWithConcurrency(values, limit, transform) {
+  const results = new Array(values.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < values.length) {
+      const index = nextIndex++;
+      results[index] = await transform(values[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, values.length) }, worker));
+  return results;
+}
+
+async function loadVideoDuration(videoID) {
+  await loadYouTubeIframeAPI();
+  return new Promise(resolve => {
+    const host = document.querySelector("#youtubePlaylistLoader");
+    const target = document.createElement("div");
+    host.append(target);
+    let player;
+    let finished = false;
+    const finish = seconds => {
+      if (finished) return;
+      finished = true;
+      player?.destroy();
+      target.remove();
+      resolve(seconds > 0 ? Math.round(seconds) : null);
+    };
+    const timeout = setTimeout(() => finish(null), 10000);
+    player = new YT.Player(target, {
+      width: "2",
+      height: "2",
+      videoId: videoID,
+      playerVars: { autoplay: 0, controls: 0 },
+      events: {
+        onReady: event => {
+          setTimeout(() => {
+            clearTimeout(timeout);
+            finish(event.target.getDuration());
+          }, 250);
+        },
+        onError: () => {
+          clearTimeout(timeout);
+          finish(null);
+        }
+      }
+    });
+  });
 }
 
 async function loadPlaylistVideoIDs(playlistID) {
@@ -370,6 +435,17 @@ function showToast(message) {
   toast.textContent = message;
   toast.hidden = false;
   toastTimer = setTimeout(() => { toast.hidden = true; }, 2000);
+}
+
+function formatDuration(seconds) {
+  if (!seconds || seconds <= 0) return "";
+  const whole = Math.round(seconds);
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const remaining = whole % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`
+    : `${minutes}:${String(remaining).padStart(2, "0")}`;
 }
 
 function friendlyError(error) {
