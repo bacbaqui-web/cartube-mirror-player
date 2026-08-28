@@ -18,9 +18,13 @@ h1 { margin: 0; text-align: center; font-size: 20px; font-weight: 600; letter-sp
 .login-icon { display: grid; place-items: center; width: 62px; height: 62px; border: 3px solid #8e8e93; border-radius: 50%; font-size: 0; }
 .login-icon::after { content: "●"; color: #8e8e93; font-size: 33px; transform: translateY(-2px); }
 .empty-card strong { color: #000; font-size: 20px; }
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; background: #e5e5ea; border-radius: 9px; }
-.tab { border: 0; border-radius: 7px; padding: 8px; background: transparent; color: #000; font-size: 14px; cursor: pointer; }
-.tab.active { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.tab-bar { display: flex; align-items: center; gap: 7px; }
+.tabs { display: flex; min-width: 0; flex: 1; gap: 5px; padding: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: 0 0 auto; border: 1px solid #c6c6c8; border-radius: 999px; padding: 7px 13px; background: transparent; color: #000; font-size: 14px; cursor: pointer; }
+.tab.active { border-color: #007aff; background: #007aff; color: #fff; }
+.small-icon-button { flex: 0 0 auto; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #c6c6c8; border-radius: 50%; background: transparent; color: #007aff; font-size: 20px; cursor: pointer; }
+.small-icon-button:disabled { opacity: .35; }
 .status { min-height: 21px; margin: 8px 4px; color: #ff3b30; font-size: 14px; }
 .video-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid #c6c6c8; }
 .video { display: grid; grid-template-columns: 104px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #c6c6c8; background: #fff; }
@@ -34,6 +38,18 @@ h1 { margin: 0; text-align: center; font-size: 20px; font-weight: 600; letter-sp
 .actions button { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; padding: 0; background: transparent; color: #007aff; font-size: 22px; cursor: pointer; }
 .actions .delete { color: #ff3b30; }
 .empty-list { padding: 58px 10px; text-align: center; color: #8e8e93; }
+.tab-dialog { width: min(520px, calc(100% - 28px)); border: 0; border-radius: 14px; padding: 16px; background: #fff; color: #000; box-shadow: 0 20px 70px rgba(0,0,0,.3); }
+.tab-dialog::backdrop { background: rgba(0,0,0,.4); }
+.dialog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 18px; }
+.text-button { border: 0; padding: 8px; background: transparent; color: #007aff; cursor: pointer; }
+.tab-list { margin: 0; padding: 0; list-style: none; }
+.tab-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; border-bottom: 1px solid #c6c6c8; }
+.managed-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-actions { display: flex; flex: 0 0 auto; }
+.tab-actions button { display: grid; place-items: center; width: 34px; height: 34px; border: 0; background: transparent; color: #007aff; font-size: 19px; cursor: pointer; }
+.tab-actions button:disabled { opacity: .25; }
+.tab-actions .delete { color: #ff3b30; }
+.dialog-help { margin: 12px 0 0; color: #8e8e93; font-size: 12px; }
 [hidden] { display: none !important; }
 @media (max-width: 560px) {
   .shell { padding: 16px 12px 60px; }
@@ -45,8 +61,10 @@ h1 { margin: 0; text-align: center; font-size: 20px; font-weight: 600; letter-sp
   body { background: #000; color: #fff; }
   .manager, .empty-card, .video { background: #1c1c1e; }
   .empty-card strong, .tab { color: #fff; }
-  .tabs { background: #3a3a3c; }
-  .tab.active { background: #636366; }
+  .tab { border-color: #636366; color: #fff; }
+  .tab.active { border-color: #0a84ff; background: #0a84ff; }
   .video-list, .video { border-color: #38383a; }
+  .tab-dialog { background: #1c1c1e; color: #fff; }
+  .tab-list li { border-color: #38383a; }
 }
 @keyframes pulse { to { opacity: 1; } }
