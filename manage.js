@@ -13,7 +13,7 @@ const app = initializeApp({
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-const playlistRef = doc(db, "playlists", "default");
+let playlistRef = null;
 const categoryKeys = ["songs", "cars", "dinosaurs"];
 let selectedCategory = "songs";
 let playlists = Object.fromEntries(categoryKeys.map(key => [key, []]));
@@ -78,10 +78,12 @@ onAuthStateChanged(auth, user => {
   manager.hidden = !user;
   signedOut.hidden = !!user;
   unsubscribe?.();
+  playlistRef = null;
   if (!user) {
     setSyncState("waiting", "Google 로그인이 필요합니다");
     return;
   }
+  playlistRef = doc(db, "users", user.uid, "playlists", "default");
   setSyncState("waiting", "Firebase 연결 중…");
   unsubscribe = onSnapshot(playlistRef, snapshot => {
     if (snapshot.exists()) {
@@ -103,6 +105,7 @@ onAuthStateChanged(auth, user => {
 });
 
 async function save() {
+  if (!playlistRef) throw new Error("Google 로그인이 필요합니다.");
   setSyncState("waiting", "저장 중…");
   await setDoc(playlistRef, { ...playlists, updatedAt: new Date().toISOString() });
   setSyncState("connected", "아이폰 앱과 연결됨");
