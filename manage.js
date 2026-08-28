@@ -145,6 +145,7 @@ onAuthStateChanged(auth, user => {
   if (!user) return;
   playlistRef = doc(db, "users", user.uid, "playlists", "default");
   unsubscribe = onSnapshot(playlistRef, snapshot => {
+    if (isEnrichingMetadata) return;
     if (snapshot.exists()) {
       tabs = decodeTabs(snapshot.data());
       ensureSelection();
