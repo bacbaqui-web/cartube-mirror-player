@@ -6,13 +6,22 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>CarTube Mirror Player</title>
   <style>
-    html, body, #player {
+    html, body {
       width: 100%;
       height: 100%;
       margin: 0;
       padding: 0;
       overflow: hidden;
       background: #000;
+    }
+
+    #player {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100vw, 177.78vh);
+      height: max(100vh, 56.25vw);
+      transform: translate(-50%, -50%);
     }
   </style>
 </head>
@@ -49,6 +58,8 @@
         playerVars: {
           playsinline: 1,
           controls: 0,
+          cc_load_policy: 0,
+          disablekb: 1,
           rel: 0,
           fs: 0,
           iv_load_policy: 3,
@@ -57,6 +68,7 @@
         events: {
           onReady: onReady,
           onStateChange: onStateChange,
+          onApiChange: disableCaptions,
           onError: event => notify({ type: 'error', value: event.data })
         }
       });
@@ -64,7 +76,15 @@
 
     function onReady() {
       notify({ type: 'index', value: currentIndex });
+      disableCaptions();
       player.playVideo();
+    }
+
+    function disableCaptions() {
+      try {
+        player.setOption('captions', 'track', {});
+        player.unloadModule('captions');
+      } catch (_) {}
     }
 
     function onStateChange(event) {
