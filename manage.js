@@ -27,11 +27,17 @@ const pasteLabel = document.querySelector("#pasteLabel");
 const status = document.querySelector("#status");
 const videoList = document.querySelector("#videoList");
 const emptyList = document.querySelector("#emptyList");
+const syncDot = document.querySelector("#syncDot");
+const syncLabel = document.querySelector("#syncLabel");
 
 authButton.addEventListener("click", async () => {
   try {
     if (auth.currentUser) await signOut(auth);
-    else await signInWithPopup(auth, new GoogleAuthProvider());
+    else {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithPopup(auth, provider);
+    }
   } catch (error) {
     showStatus(friendlyError(error));
   }
@@ -72,18 +78,34 @@ onAuthStateChanged(auth, user => {
   manager.hidden = !user;
   signedOut.hidden = !!user;
   unsubscribe?.();
-  if (!user) return;
+  if (!user) {
+    setSyncState("waiting", "Google 로그인이 필요합니다");
+    return;
+  }
+  setSyncState("waiting", "Firebase 연결 중…");
   unsubscribe = onSnapshot(playlistRef, snapshot => {
     if (snapshot.exists()) {
       const data = snapshot.data();
       playlists = Object.fromEntries(categoryKeys.map(key => [key, Array.isArray(data[key]) ? data[key] : []]));
+      setSyncState("connected", "아이폰 앱과 연결됨");
+    } else {
+      save().then(() => setSyncState("connected", "아이폰 앱과 연결됨"))
+        .catch(error => {
+          setSyncState("error", "Firebase 저장 실패");
+          showStatus(friendlyError(error));
+        });
     }
     render();
-  }, error => showStatus(friendlyError(error)));
+  }, error => {
+    setSyncState("error", "Firebase 연결 실패");
+    showStatus(friendlyError(error));
+  });
 });
 
 async function save() {
+  setSyncState("waiting", "저장 중…");
   await setDoc(playlistRef, { ...playlists, updatedAt: new Date().toISOString() });
+  setSyncState("connected", "아이폰 앱과 연결됨");
 }
 
 function render() {
@@ -110,6 +132,11 @@ function render() {
 }
 
 function showStatus(message) { status.textContent = message; }
+
+function setSyncState(state, message) {
+  syncDot.className = `sync-dot ${state === "waiting" ? "" : state}`;
+  syncLabel.textContent = message;
+}
 
 function friendlyError(error) {
   if (error?.code === "auth/unauthorized-domain") return "Firebase에서 이 웹 주소의 로그인을 아직 허용하지 않았습니다.";

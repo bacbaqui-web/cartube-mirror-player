@@ -10,15 +10,14 @@
   <main class="shell">
     <header>
       <div>
-        <p class="eyebrow">TUNTUN</p>
-        <h1>튼튼 영상 관리</h1>
-        <p class="description">여기서 추가한 영상은 아이폰 앱에 자동으로 나타납니다.</p>
+        <h1>튼튼</h1>
+        <p class="description">아이폰 재생목록 관리</p>
       </div>
       <button id="authButton" class="auth-button">Google로 로그인</button>
     </header>
 
     <section id="signedOut" class="empty-card">
-      <span class="face">◉‿◉</span>
+      <span class="login-icon">person.crop.circle</span>
       <strong>먼저 Google로 로그인해 주세요.</strong>
       <span>튼튼 전용 재생목록은 로그인한 본인만 수정할 수 있습니다.</span>
     </section>
@@ -29,6 +28,11 @@
         <button class="tab" data-category="cars">자동차</button>
         <button class="tab" data-category="dinosaurs">공룡</button>
       </nav>
+
+      <div class="sync-row">
+        <span id="syncDot" class="sync-dot"></span>
+        <span id="syncLabel">Firebase 연결 확인 중…</span>
+      </div>
 
       <button id="pasteButton" class="paste-button">
         <span>▣</span>
