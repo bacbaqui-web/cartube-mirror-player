@@ -18,12 +18,12 @@ const categoryKeys = ["songs", "cars", "dinosaurs"];
 let selectedCategory = "songs";
 let playlists = Object.fromEntries(categoryKeys.map(key => [key, []]));
 let unsubscribe = null;
+let isEnrichingMetadata = false;
 
 const authButton = document.querySelector("#authButton");
 const manager = document.querySelector("#manager");
 const signedOut = document.querySelector("#signedOut");
 const pasteButton = document.querySelector("#pasteButton");
-const pasteLabel = document.querySelector("#pasteLabel");
 const status = document.querySelector("#status");
 const videoList = document.querySelector("#videoList");
 const emptyList = document.querySelector("#emptyList");
@@ -53,7 +53,7 @@ document.querySelectorAll(".tab").forEach(button => {
 
 pasteButton.addEventListener("click", async () => {
   pasteButton.disabled = true;
-  pasteLabel.textContent = "영상 정보를 가져오는 중…";
+  pasteButton.classList.add("loading");
   showStatus("");
   try {
     const text = await navigator.clipboard.readText();
@@ -61,20 +61,23 @@ pasteButton.addEventListener("click", async () => {
     if (!videoID) throw new Error("YouTube 영상 주소를 먼저 복사해 주세요.");
     const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoID}`)}&format=json`);
     if (!response.ok) throw new Error("영상 제목을 가져오지 못했습니다.");
-    const { title } = await response.json();
-    playlists[selectedCategory].push({ id: crypto.randomUUID(), videoID, title });
+    const { title, author_name: channelName } = await response.json();
+    playlists[selectedCategory].push({ id: crypto.randomUUID(), videoID, title, channelName });
     await save();
     showStatus("영상이 추가되었습니다.");
   } catch (error) {
     showStatus(error.message || "영상을 추가하지 못했습니다.");
   } finally {
-    pasteButton.disabled = false;
-    pasteLabel.textContent = "YouTube 영상 URL 붙여넣기";
+    pasteButton.disabled = !auth.currentUser;
+    pasteButton.classList.remove("loading");
   }
 });
 
 onAuthStateChanged(auth, user => {
-  authButton.textContent = user ? "로그아웃" : "Google로 로그인";
+  pasteButton.disabled = !user;
+  authButton.classList.toggle("signed-in", !!user);
+  authButton.setAttribute("aria-label", user ? "로그아웃" : "Google로 로그인");
+  authButton.title = user ? `${user.email || "Google 계정"} · 로그아웃` : "Google로 로그인";
   manager.hidden = !user;
   signedOut.hidden = !!user;
   unsubscribe?.();
@@ -98,6 +101,7 @@ onAuthStateChanged(auth, user => {
         });
     }
     render();
+    enrichMissingChannelNames();
   }, error => {
     setSyncState("error", "Firebase 연결 실패");
     showStatus(friendlyError(error));
@@ -111,13 +115,44 @@ async function save() {
   setSyncState("connected", "아이폰 앱과 연결됨");
 }
 
+async function enrichMissingChannelNames() {
+  if (isEnrichingMetadata || !playlistRef) return;
+  const missing = categoryKeys.flatMap(key =>
+    (playlists[key] || []).filter(video => !video.channelName).map(video => ({ key, video }))
+  );
+  if (!missing.length) return;
+
+  isEnrichingMetadata = true;
+  let changed = false;
+  try {
+    for (const { key, video } of missing) {
+      const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${video.videoID}`)}&format=json`);
+      if (!response.ok) continue;
+      const { author_name: channelName } = await response.json();
+      const current = playlists[key]?.find(item => item.id === video.id);
+      if (current && channelName) {
+        current.channelName = channelName;
+        changed = true;
+      }
+    }
+    if (changed) await save();
+  } finally {
+    isEnrichingMetadata = false;
+  }
+}
+
 function render() {
   const videos = playlists[selectedCategory] || [];
   videoList.replaceChildren(...videos.map((video, index) => {
     const item = document.createElement("li");
     item.className = "video";
-    item.innerHTML = `<img alt="" src="https://i.ytimg.com/vi/${video.videoID}/mqdefault.jpg"><div class="video-title"></div><div class="actions"><button class="rename">이름 변경</button><button class="delete">삭제</button></div>`;
+    const youtubeURL = `https://www.youtube.com/watch?v=${video.videoID}`;
+    item.innerHTML = `<a class="video-link" target="_blank" rel="noopener noreferrer"><img alt="" src="https://i.ytimg.com/vi/${video.videoID}/mqdefault.jpg"></a><a class="video-info video-link" target="_blank" rel="noopener noreferrer"><span class="video-title"></span><span class="channel-name"></span></a><div class="actions"><button class="rename" aria-label="이름 변경" title="이름 변경">✎</button><button class="delete" aria-label="삭제" title="삭제">⌫</button></div>`;
+    item.querySelectorAll(".video-link").forEach(link => link.href = youtubeURL);
     item.querySelector(".video-title").textContent = `${index + 1}. ${video.title}`;
+    const channel = item.querySelector(".channel-name");
+    channel.textContent = video.channelName || "";
+    channel.hidden = !video.channelName;
     item.querySelector(".rename").addEventListener("click", async () => {
       const title = prompt("영상 이름", video.title)?.trim();
       if (!title) return;

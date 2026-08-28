@@ -4,16 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>튼튼 영상 관리</title>
-  <link rel="stylesheet" href="manage.css?v=2">
+  <link rel="stylesheet" href="manage.css?v=3">
 </head>
 <body>
   <main class="shell">
-    <header>
-      <div>
-        <h1>튼튼</h1>
-        <p class="description">아이폰 재생목록 관리</p>
-      </div>
-      <button id="authButton" class="auth-button">Google로 로그인</button>
+    <header class="top-bar">
+      <button id="pasteButton" class="icon-button add-button" aria-label="YouTube 영상 URL 붙여넣기" title="YouTube 영상 URL 붙여넣기">＋</button>
+      <h1>튼튼 재생목록 관리</h1>
+      <button id="authButton" class="icon-button auth-button" aria-label="Google로 로그인" title="Google로 로그인">●</button>
     </header>
 
     <section id="signedOut" class="empty-card">
@@ -34,17 +32,12 @@
         <span id="syncLabel">Firebase 연결 확인 중…</span>
       </div>
 
-      <button id="pasteButton" class="paste-button">
-        <span>▣</span>
-        <span id="pasteLabel">YouTube 영상 URL 붙여넣기</span>
-      </button>
-
       <p id="status" class="status" role="status"></p>
       <ol id="videoList" class="video-list"></ol>
       <div id="emptyList" class="empty-list">아직 등록된 영상이 없습니다.</div>
     </section>
   </main>
 
-  <script type="module" src="manage.js?v=4"></script>
+  <script type="module" src="manage.js?v=5"></script>
 </body>
 </html>
