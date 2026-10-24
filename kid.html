@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="strict-origin-when-cross-origin"><title>튼튼</title><style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}#player{position:absolute;width:100%;height:100%}</style></head><body><div id="player"></div><script>
+let player, allowed=true;
+const notify=v=>window.webkit?.messageHandlers?.childPlayer?.postMessage(v);
+window.pauseVideo=()=>{allowed=false;player?.pauseVideo?.()};
+window.resumeVideo=()=>{allowed=true;player?.playVideo?.()};
+window.onYouTubeIframeAPIReady=()=>{
+ const id=new URLSearchParams(location.search).get('video');
+ if(!/^[\w-]{11}$/.test(id||'')){notify(-99);return;}
+ player=new YT.Player('player',{videoId:id,playerVars:{playsinline:1,controls:0,disablekb:1,rel:0,fs:0,origin:location.origin},events:{onReady:()=>{if(allowed)player.playVideo()},onStateChange:e=>{notify(e.data);if(e.data===1&&!allowed)player.pauseVideo()},onError:()=>notify(-99)}});
+};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseVideo()});
+setTimeout(()=>{if(!player?.getPlayerState)notify(-99)},20000);
+</script><script src="https://www.youtube.com/iframe_api" onerror="notify(-99)"></script></body></html>
